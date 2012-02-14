@@ -1,0 +1,11 @@
+<% import scala.collection.mutable.ArrayBuffer %>
+<%@ var geoArray:ArrayBuffer[Map[String,String]] %>
+
+<ul>
+#for (geo <- geoArray)
+<li>
+<img src="${geo("Img")}">
+${geo("Str")}
+</li>
+#end
+</ul>

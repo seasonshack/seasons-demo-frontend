@@ -1,0 +1,62 @@
+<% import scala.collection.mutable.ArrayBuffer %>
+<%@ var result:ArrayBuffer[String] %>
+
+<script type="text/javascript">
+var geo = navigator.geolocation || google.gears.factory.create('beta.geolocation');
+$(document).ready(function(){
+
+$('#postGeo').bind("click", function() {
+if(geo){
+  geo.getCurrentPosition(
+    function (pos) {
+      //console.log(pos.coords.latitude,pos.coords.longitude);
+      //alert(pos.coords.latitude,pos.coords.longitude);
+      $.ajax({
+        type: 'POST',
+        url: '/',
+        data: {name: $('#userName').val(), lat:pos.coords.latitude, lon:pos.coords.longitude},
+        success: function(d){location.reload()},
+      });
+    },
+    function (e) {
+      alert('error');
+    },
+    {
+      enableHighAccuracy: true
+    }
+  );
+}
+});
+
+});
+</script>
+<div data-role="page" data-theme="a">
+<div data-role="header" data-position="inline">
+<h1>Post LatLon!</h1>
+</div>
+<div data-role="content" data-theme="a">
+
+<div style="margin: 20px">
+<input type="text" id="userName" />
+<input type="button" id="postGeo" value="post" />
+</div>
+
+<div class="content-primary">	
+
+<ul data-role="listview" class="ui-listview">
+#for (r <- result)
+<li data-theme="c" class="ui-btn ui-btn-up-c ui-btn-icon-right ui-li-has-arrow ui-li ui-li-has-thumb"><div class="ui-btn-inner ui-li"><div class="ui-btn-text"><a href="index.html" class="ui-link-inherit">
+<img src="http://jquerymobile.com/demos/1.0.1/docs/lists/images/album-bb.jpg" class="ui-li-thumb">
+<h3 class="ui-li-heading">${r}</h3>
+<p class="ui-li-desc">aaaa</p>
+</a></div><span class="ui-icon ui-icon-arrow-r ui-icon-shadow"></span></div>
+</li>
+#end
+</ul>
+
+</div>
+
+
+
+</div>
+</div>
