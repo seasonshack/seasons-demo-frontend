@@ -1,5 +1,6 @@
 <% import scala.collection.mutable.ArrayBuffer %>
-<%@ var result:ArrayBuffer[String] %>
+<%@ var searchResult:ArrayBuffer[Map[String,String]] %>
+<%@ var staticMap:String %>
 
 <script type="text/javascript">
 var geo = navigator.geolocation || google.gears.factory.create('beta.geolocation');
@@ -14,7 +15,7 @@ if(geo){
       $.ajax({
         type: 'POST',
         url: '/',
-        data: {name: $('#userName').val(), lat:pos.coords.latitude, lon:pos.coords.longitude},
+        data: {name: 'yukondou', lat:pos.coords.latitude, lon:pos.coords.longitude},
         success: function(d){location.reload()},
       });
     },
@@ -32,30 +33,35 @@ if(geo){
 </script>
 <div data-role="page" data-theme="a">
 <div data-role="header" data-position="inline">
-<h1>Post LatLon!</h1>
+<h1>Seasons Search</h1>
 </div>
 <div data-role="content" data-theme="a">
 
 <div style="margin: 20px">
-<input type="text" id="userName" />
+<!--input type="text" id="userName" /-->
+Welcom, yukondou
+<input type="text" id="keyword" /x>
 <input type="button" id="postGeo" value="post" />
 </div>
 
 <div class="content-primary">	
 
+<img src="${staticMap}" />
+
 <ul data-role="listview" data-inset="true" data-split-theme="a">
 <li data-role="list-divider" class="ui-bar-a">Results</li>
-#for (r <- result)
+#for (r <- searchResult)
 <li><a href="index.html">
-<img src="http://jquerymobile.com/demos/1.0.1/docs/lists/images/album-bb.jpg">
-<h3 class="ui-li-heading">${r}</h3>
-<p>Broken Bells</p>
+<img src="${r("Img")}">
+<h3 class="ui-li-heading">${r("Name")}</h3>
+<p>${r("Station")}</p>
 </a>
 <a href="index.html">Purchase album</a>
 </li>
 
 #end
 </ul>
+
 
 </div>
 
