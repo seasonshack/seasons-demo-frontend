@@ -6,77 +6,117 @@ import scalate.ScalateSupport
 import com.mongodb.casbah.Imports._
 import scala.collection.mutable.ArrayBuffer
 
+import java.awt.Color
+
 class SeasonsSearch extends ScalatraServlet with ScalateSupport {
   //setup Casbah connection
   val mongo = MongoConnection("localhost",27017)("seasons")("geo")
 
   get("/") {
-    /*
-    var result = new ArrayBuffer[String]()
-    mongo.foreach(geo => {
-      result += List(geo.get("name"), geo.get("lat"), geo.get("lon"), geo.get("timestamp")).mkString(", ")
-    }
+    //get current geo info
+    //とりあえず user name固定
+    val name = "yukondou"
+    var curLat = ""
+    var curLon = ""
+    mongo.find(MongoDBObject("name" -> name)).sort(MongoDBObject("timestamp" -> -1)).limit(1).foreach(geo => {
+      println(geo)
+      curLat = geo("lat").toString()
+      curLon = geo("lon").toString()
+    })
+
+    //get recommended parameters
+    var recomLatLonArray = new ArrayBuffer[Map[String,String]]()
+    recomLatLonArray += Map[String,String](
+      "lat" -> "35.658517",
+      "lon" -> "139.701334"
     )
-    */
+    recomLatLonArray += Map[String,String](
+      "lat" -> "35.64669",
+      "lon" -> "139.710106"
+    )
 
-    //local search
-    var url = "http://search.olp.yahooapis.jp/OpenLocalPlatform/V1/localSearch?appid=cV8qsbmxg67L0Z7MV1B7vtwGTL5uf2wHPQhZPkam8Wfjp_.7SpgzAEn9cID00NXUcpqY&output=json&gc=01&ac=13103&sort=hybrid&query="
-    params.get("keyword").foreach(keyword => {url += java.net.URLEncoder.encode(keyword, "UTF-8")})
-    println(url)
-    val source = Source.fromURL(url, "utf-8")
-    val response = JSON.parseFull(source.getLines.mkString)
-    val result = response.get.asInstanceOf[Map[String,List[Map[String,Any]]]]
-    val searchResult = new ArrayBuffer[Map[String,String]]()
-    result("Feature").foreach(feature => {
-      //get image info
-      var img:String = ""
-      feature("Property").asInstanceOf[Map[String,String]].get("LeadImage") match {
-        case Some(v) => img = v
-        case None => img = "/img/noimage.jpeg"
-      }
-
-      //get station info
-      var st:String = ""
-      feature("Property").asInstanceOf[Map[String,Any]].get("Station").foreach(stationList => {
-        val station = stationList.asInstanceOf[List[Map[String,String]]].head
-        //var tmp = Nil
-        station("Name") match {
-          case n:String => st += n
-          case _ => ""
-        }
-        station("Railway") match {
-          case r:String => st += "/" + r
-          case _ => ""
-        }
+    def getSearchResult(lat:String, lon:String):ArrayBuffer[Map[String,String]] = {
+      //local search
+      var url = "http://search.olp.yahooapis.jp/OpenLocalPlatform/V1/localSearch?appid=cV8qsbmxg67L0Z7MV1B7vtwGTL5uf2wHPQhZPkam8Wfjp_.7SpgzAEn9cID00NXUcpqY" + "&output=json&gc=01&sort=dist&lat=" + lat + "&lon=" + lon + "&dist=1000" + "query="
+      params.get("keyword").foreach(keyword => {
+        url += java.net.URLEncoder.encode(keyword, "UTF-8")
       })
-      
-      //get latlon
-      val g = feature("Geometry").asInstanceOf[Map[String,String]]
-      val coordinates = g("Coordinates").split(",")
-      val lat = coordinates(1)
-      val lon = coordinates(0)
+      println(url)
+      val source = Source.fromURL(url, "utf-8")
+      val response = JSON.parseFull(source.getLines.mkString)
+      val result = response.get.asInstanceOf[Map[String,List[Map[String,Any]]]]
+      val searchResult = new ArrayBuffer[Map[String,String]]()
+      result("Feature").foreach(feature => {
+        //get image info
+        var img:String = ""
+        feature("Property").asInstanceOf[Map[String,String]].get("LeadImage") match {
+          case Some(v) => img = v
+          case None => img = "/img/noimage.jpeg"
+        }
 
-      //make result hash
-      val r = Map[String,String](
-        "Name" -> feature("Name").toString,
-        "Img" -> img,
-        "Station" -> st,
-        "Lat" -> lat,
-        "Lon" -> lon
-      )
-      searchResult += r
+        //get station info
+        var st:String = ""
+        feature("Property").asInstanceOf[Map[String,Any]].get("Station").foreach(stationList => {
+          val station = stationList.asInstanceOf[List[Map[String,String]]].head
+          //var tmp = Nil
+          station("Name") match {
+            case n:String => st += n
+            case _ => ""
+          }
+          station("Railway") match {
+            case r:String => st += "/" + r
+            case _ => ""
+          }
+        })
+
+        //get latlon
+        val g = feature("Geometry").asInstanceOf[Map[String,String]]
+        val coordinates = g("Coordinates").split(",")
+        val lat = coordinates(1)
+        val lon = coordinates(0)
+
+        //make result hash
+        val r = Map[String,String](
+          "Name" -> feature("Name").toString,
+          "Img" -> img,
+          "Station" -> st,
+          "Lat" -> lat,
+          "Lon" -> lon
+        )
+        searchResult += r
+      })
+      return searchResult
+    }
+    var searchResultSet = new ArrayBuffer[ArrayBuffer[Map[String,String]]]
+    recomLatLonArray.foreach(recom => {
+      searchResultSet += getSearchResult(recom("lat"), recom("lon"))
+    })
+    //make static map
+    //現在地情報が取得できる場合は、現在地を表示
+    //検索対象の緯度経度がある場合は、緯度経度と範囲を表示
+    //検索結果も地図表示
+    val ysm = new YolpStaticMap("cV8qsbmxg67L0Z7MV1B7vtwGTL5uf2wHPQhZPkam8Wfjp_.7SpgzAEn9cID00NXUcpqY",
+      //"35.658619279712", "139.74553000746",
+      320, 280)
+
+    if (curLat != "" && curLon != "") {
+      ysm.addPin(curLat, curLon, "default")
+    } else {
+      println("cannot get current geo info")
+    }
+
+    recomLatLonArray.foreach(recom => {
+      ysm.addCircle(new Color(255, 0, 0), 0, 1, new Color(255, 0, 0), 80, recom("lat"), recom("lon"), 1000)
     })
 
-    var pins = new ArrayBuffer[String]
-    var i = 1
-    searchResult.foreach(r => {
-      pins += "pin%d=%s,%s".format(i, r("Lat"), r("Lon"))
-      i += 1
+    searchResultSet.foreach(sr => {
+      sr.foreach(r => {
+        ysm.addPin(r("Lat"), r("Lon"), "")
+      })
     })
-    val staticMap = "http://map.olp.yahooapis.jp/OpenLocalPlatform/V1/static?appid=cV8qsbmxg67L0Z7MV1B7vtwGTL5uf2wHPQhZPkam8Wfjp_.7SpgzAEn9cID00NXUcpqY&width=230&height=200&scalebar=off&logo=off&output=png&quality=40&maxzoom=17&" +pins.mkString("&")
 
     contentType = "text/html"
-    templateEngine.layout("WEB-INF/layouts/main.ssp", Map("searchResult" -> searchResult, "staticMap" -> staticMap))
+    templateEngine.layout("WEB-INF/layouts/main.ssp", Map("searchResultSet" -> searchResultSet, "staticMap" -> ysm.getUrl))
   }
 
   post("/") {
@@ -89,23 +129,122 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
     builder += ("timestamp" -> java.util.Calendar.getInstance().getTimeInMillis())
     mongo += builder.result
 
-    //redirect("/")
+    var url = "/?keyword="
+    params.get("keyword").foreach(keyword => {url += java.net.URLEncoder.encode(keyword, "UTF-8")})
+    redirect(url)
   }
 
-  get("/list") {
-    var geoArray = new ArrayBuffer[Map[String,String]]()
-    mongo.foreach(geo => {
-      val d = Map[String,String](
-        "Img" -> ("http://map.olp.yahooapis.jp/OpenLocalPlatform/V1/static?appid=cV8qsbmxg67L0Z7MV1B7vtwGTL5uf2wHPQhZPkam8Wfjp_.7SpgzAEn9cID00NXUcpqY&pin1=" + List(geo.get("lat"), geo.get("lon")).mkString(",") + ",Tower&z=17&width=100&height=100").toString(),
-        "Str" -> List(geo.get("name"), geo.get("lat"), geo.get("lon"), geo.get("timestamp")).mkString(", ")
-      )
-      geoArray += d
+  get("/test") {
+    val name = "test_yukondou"
+    //$ date +%s -d '2012/02/20 11:30:00'
+    val baseTime:Int = 1329705000
+    val testDataSet = List(
+      //品川
+      ("35.630152,139.74044",baseTime),
+      //大崎
+      ("35.6197,139.728553",(baseTime + 120).toString()),
+      //五反田
+      ("35.626446,139.723444", (baseTime + 300).toString()),
+      //目黒
+      ("35.633998,139.715828",(baseTime + 420).toString()),
+      //恵比寿
+      ("35.64669,139.710106",(baseTime + 600).toString()),
+      //渋谷
+      ("35.658517,139.701334",(baseTime + 720).toString()),
+      //原宿
+      ("35.670168,139.702687",(baseTime + 840).toString()),
+      //代々木
+      ("35.683061,139.702042",(baseTime + 1020).toString()),
+      //新宿
+      ("35.690921,139.700258",(baseTime + 1140).toString())
+    )
+
+    testDataSet.foreach(data => {
+      //save to mongo
+      val builder = MongoDBObject.newBuilder
+      val latlon = data._1.split(",")
+      builder += ("lat" -> latlon(0))
+      builder += ("lon" -> latlon(1))
+      builder += ("name" -> name)
+      builder += ("timestamp" -> data._2)
+      mongo += builder.result
     })
+
+    var result = new ArrayBuffer[String]()
+    mongo.foreach(geo => {
+      result += List(geo.get("name"), geo.get("lat"), geo.get("lon"), geo.get("timestamp")).mkString(", ")
+    })
+
     contentType = "text/html"
-    templateEngine.layout("WEB-INF/layouts/list.ssp", 
-                          Map(
-                            "geoArray" -> geoArray
-                          ))
+    templateEngine.layout("WEB-INF/layouts/list.ssp", Map("result" -> result))
   }
 
 }
+
+class YolpStaticMap(
+  private val appid: String,
+  //private val lat: String,
+  //private val lon: String,
+  private val width: Int,
+  private val height: Int
+) {
+  private val baseUrl = "http://map.olp.yahooapis.jp/OpenLocalPlatform/V1/static"
+  private var pins = new ArrayBuffer[String]
+  private var circles = new ArrayBuffer[String]
+  private val default = "scalebar=off&logo=off&output=png&quality=40&maxzoom=17&mode=map&style=base:vivid"
+  def addPin(lat:String, lon:String, style:String = "", label:String = "", color:String = "") = {
+    pins += "pin%s=%s,%s,%s,%s".format(style, lat, lon, label, color)
+  }
+  def addCircle(borderColor:Color, borderAlpha:Int = 0, borderWidth:Int = 1,
+                innerColor:Color, innerAlpha:Int = 0,
+                lat:String, lon:String, dist:Int) = {
+    var tmp = new ArrayBuffer[String]
+    tmp += borderColor.getRed().toString()
+    tmp += borderColor.getGreen().toString()
+    tmp += borderColor.getBlue().toString()
+    tmp += borderAlpha.toString()
+    tmp += borderWidth.toString()
+    tmp += innerColor.getRed().toString()
+    tmp += innerColor.getGreen().toString()
+    tmp += innerColor.getBlue().toString()
+    tmp += innerAlpha.toString()
+    tmp += lat
+    tmp += lon
+    tmp += dist.toString()
+    circles += tmp.mkString(",")
+  }
+  def getParameterString = {
+    var tmp = new ArrayBuffer[String]
+    tmp += "appid=" + appid
+    //tmp += "lat=" + lat
+    //tmp += "lon=" + lon
+    tmp += "width=" + width
+    tmp += "height=" + height
+    tmp += default
+    val pin = pins.mkString("&")
+    if (pin != "") {
+      tmp += pin
+    }
+    val circle = circles.mkString(":")
+    if (circle != "") {
+      tmp += "e=" + circle
+    }
+    tmp.mkString("&")
+  }
+  def getUrl = baseUrl + "?" + getParameterString
+}
+
+object YolpStaticMap {
+  def main(args: Array[String]) {
+    val ysm = new YolpStaticMap("cV8qsbmxg67L0Z7MV1B7vtwGTL5uf2wHPQhZPkam8Wfjp_.7SpgzAEn9cID00NXUcpqY",
+                                //"35.658619279712", "139.74553000746",
+                                200, 200)
+    ysm.addPin("35.658619279712", "139.74553000746", "")
+    ysm.addCircle(new Color(255, 0, 0), 0, 1, new Color(255, 0, 0), 127, "35.658619279712", "139.74553000746", 3000)
+    ysm.addPin("35.758619279812", "139.74553000750", "")
+    ysm.addCircle(new Color(255, 0, 0), 0, 1, new Color(255, 0, 0), 127, "35.758619279812", "139.74553000750", 3000)
+    println(ysm.getUrl)
+  }
+}
+
+

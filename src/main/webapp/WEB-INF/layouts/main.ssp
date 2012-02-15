@@ -1,35 +1,26 @@
 <% import scala.collection.mutable.ArrayBuffer %>
-<%@ var searchResult:ArrayBuffer[Map[String,String]] %>
+<%@ var searchResultSet:ArrayBuffer[ArrayBuffer[Map[String,String]]] %>
 <%@ var staticMap:String %>
 
 <script type="text/javascript">
 var geo = navigator.geolocation || google.gears.factory.create('beta.geolocation');
-$(document).ready(function(){
-
-$('#postGeo').bind("click", function() {
+var setGeo = function() {
 if(geo){
   geo.getCurrentPosition(
     function (pos) {
-      //console.log(pos.coords.latitude,pos.coords.longitude);
-      //alert(pos.coords.latitude,pos.coords.longitude);
-      $.ajax({
-        type: 'POST',
-        url: '/',
-        data: {name: 'yukondou', lat:pos.coords.latitude, lon:pos.coords.longitude},
-        success: function(d){location.reload()},
-      });
+        $('#lat').val(pos.coords.latitude);
+        $('#lon').val(pos.coords.longitude);
+        return true;
     },
     function (e) {
-      alert('error');
+      return false;
     },
     {
       enableHighAccuracy: true
     }
   );
 }
-});
-
-});
+}
 </script>
 <div data-role="page" data-theme="a">
 <div data-role="header" data-position="inline">
@@ -40,8 +31,13 @@ if(geo){
 <div style="margin: 20px">
 <!--input type="text" id="userName" /-->
 Welcom, yukondou
-<input type="text" id="keyword" /x>
-<input type="button" id="postGeo" value="post" />
+<form onSubmit="return setGeo();" method="post" action="/" data-ajax="false">
+<input type="text" name="keyword" id="keyword" /x>
+<input type="hidden" name="lat" id="lat" />
+<input type="hidden" name="lon" id="lon" />
+<input type="hidden" name="name" id="name" value="yukondou" />
+<input type="submit" value="post" />
+</form>
 </div>
 
 <div class="content-primary">	
@@ -49,8 +45,9 @@ Welcom, yukondou
 <img src="${staticMap}" />
 
 <ul data-role="listview" data-inset="true" data-split-theme="a">
+#for (sr <- searchResultSet)
 <li data-role="list-divider" class="ui-bar-a">Results</li>
-#for (r <- searchResult)
+#for (r <- sr)
 <li><a href="index.html">
 <img src="${r("Img")}">
 <h3 class="ui-li-heading">${r("Name")}</h3>
@@ -58,7 +55,7 @@ Welcom, yukondou
 </a>
 <a href="index.html">Purchase album</a>
 </li>
-
+#end
 #end
 </ul>
 
