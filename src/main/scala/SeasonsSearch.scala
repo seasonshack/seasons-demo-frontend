@@ -135,12 +135,12 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
     }
 
     recomLatLonArray.foreach(recom => {
-      ysm.addCircle(new Color(255, 0, 0), 0, 1, new Color(255, 0, 0), 80, recom("lat"), recom("lon"), 800)
+      ysm.addCircle(new Color(0, 255, 0), 0, 1, new Color(0, 255, 0), 80, recom("lat"), recom("lon"), 800)
     })
 
     searchResultSet.foreach(sr => {
       sr.foreach(r => {
-        ysm.addPin(r("Lat"), r("Lon"), "")
+        ysm.addPin(r("Lat"), r("Lon"), "", "", "green")
       })
     })
 
