@@ -33,7 +33,7 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
     val seasonsApi = "http://localhost:8124/"
     val seasonsRes = JSON.parseFull(Source.fromURL(seasonsApi, "utf-8").getLines.mkString)
     val seasonsResult = seasonsRes.get.asInstanceOf[Map[String,List[Map[String,Any]]]]
-    seasonsResult("station").take(2).foreach(station => {
+    seasonsResult("station").take(4).foreach(station => {
       println(station("Name"))
       val geo = station("Geometry").asInstanceOf[Map[String,String]]
       val latlon = geo("Coordinates").split(",")
@@ -184,25 +184,31 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
     val baseTime:Int = 1329705000
     val testDataSet = List(
       //品川
-      //("35.630152,139.74044",baseTime),
+      ("35.630152,139.74044",baseTime),
       //大崎
-      //("35.6197,139.728553",(baseTime + 120).toString()),
+      ("35.6197,139.728553",(baseTime + 120).toString()),
       //五反田
       ("35.626446,139.723444", (baseTime + 300).toString()),
       //目黒
-      //("35.633998,139.715828",(baseTime + 420).toString()),
+      ("35.633998,139.715828",(baseTime + 420).toString()),
       //恵比寿
       ("35.64669,139.710106",(baseTime + 600).toString()),
       //渋谷
-      //("35.658517,139.701334",(baseTime + 720).toString())
+      ("35.658517,139.701334",(baseTime + 720).toString()),
       //原宿
-      ("35.670168,139.702687",(baseTime + 840).toString())
+      ("35.670168,139.702687",(baseTime + 840).toString()),
       //代々木
-      //("35.683061,139.702042",(baseTime + 1020).toString()),
+      ("35.683061,139.702042",(baseTime + 1020).toString()),
       //新宿
-      //("35.690921,139.700258",(baseTime + 1140).toString())
+      ("35.690921,139.700258",(baseTime + 1140).toString())
     )
 
+    var num:Int = 0
+    params.get("n").foreach(n => {
+      num = n.toInt
+    })
+
+    /*
     testDataSet.foreach(data => {
       //save to mongo
       val builder = MongoDBObject.newBuilder
@@ -213,6 +219,15 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
       builder += ("timestamp" -> data._2)
       mongo += builder.result
     })
+    */
+    val data = testDataSet(num)
+    val builder = MongoDBObject.newBuilder
+    val latlon = data._1.split(",")
+    builder += ("lat" -> latlon(0))
+    builder += ("lon" -> latlon(1))
+    builder += ("name" -> name)
+    builder += ("timestamp" -> data._2)
+    mongo += builder.result
 
     var result = new ArrayBuffer[String]()
     mongo.foreach(geo => {
@@ -233,14 +248,19 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
         //青山一丁目
         ("35.672841,139.724018",(baseTime + 120).toString()),
         //国立競技場
-        ("35.679892,139.714721", (baseTime + 540).toString())
+        ("35.679892,139.714721", (baseTime + 300).toString()),
+        //代々木
+        ("35.683777,139.701527", (baseTime + 480).toString()),
+        //新宿
+        ("35.687621,139.699347", (baseTime + 540).toString())
       )
 
-      var num:Int = 3
+      var num:Int = 0
       params.get("n").foreach(n => {
         num = n.toInt
       })
-      
+
+      /*
       testDataSet.take(num).foreach(data => {
         //save to mongo
         val builder = MongoDBObject.newBuilder
@@ -251,6 +271,17 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
         builder += ("timestamp" -> data._2)
         mongo += builder.result
       })
+      */
+
+      //save to mongo
+      val data = testDataSet(num)
+      val builder = MongoDBObject.newBuilder
+      val latlon = data._1.split(",")
+      builder += ("lat" -> latlon(0))
+      builder += ("lon" -> latlon(1))
+      builder += ("name" -> name)
+      builder += ("timestamp" -> data._2)
+      mongo += builder.result
       
       var result = new ArrayBuffer[String]()
       mongo.foreach(geo => {
@@ -273,7 +304,7 @@ class YolpStaticMap(
   private val baseUrl = "http://map.olp.yahooapis.jp/OpenLocalPlatform/V1/static"
   private var pins = new ArrayBuffer[String]
   private var circles = new ArrayBuffer[String]
-  private val default = "scalebar=off&logo=off&output=png&quality=40&maxzoom=17&mode=map&style=base:vivid"
+  private val default = "scalebar=off&logo=off&output=png&quality=40&z=14&mode=map&style=base:vivid"
   def addPin(lat:String, lon:String, style:String = "", label:String = "", color:String = "") = {
     pins += "pin%s=%s,%s,%s,%s".format(style, lat, lon, label, color)
   }
