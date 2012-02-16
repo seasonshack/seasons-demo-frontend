@@ -15,7 +15,8 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
   get("/") {
     //get current geo info
     //とりあえず user name固定
-    val name = "yukondou"
+    var name = "yukondou"
+    params.get("name").foreach(name = _)
     var curLat = ""
     var curLon = ""
     mongo.find(MongoDBObject("name" -> name)).sort(MongoDBObject("timestamp" -> -1)).limit(1).foreach(geo => {
@@ -26,6 +27,7 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
 
     //get recommended parameters
     var recomLatLonArray = new ArrayBuffer[Map[String,String]]()
+    /*
     recomLatLonArray += Map[String,String](
       "lat" -> "35.658517",
       "lon" -> "139.701334"
@@ -34,6 +36,7 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
       "lat" -> "35.64669",
       "lon" -> "139.710106"
     )
+    */
 
     def getSearchResult(lat:String, lon:String):ArrayBuffer[Map[String,String]] = {
       //local search
@@ -87,10 +90,19 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
       })
       return searchResult
     }
+
+    //
+    //search
+    //
     var searchResultSet = new ArrayBuffer[ArrayBuffer[Map[String,String]]]
-    recomLatLonArray.foreach(recom => {
-      searchResultSet += getSearchResult(recom("lat"), recom("lon"))
-    })
+    //推薦緯度経度がない場合、最新の緯度経度で検索する
+    if (!recomLatLonArray.isEmpty) {
+      recomLatLonArray.foreach(recom => {
+        searchResultSet += getSearchResult(recom("lat"), recom("lon"))
+      })
+    } else if (curLat != "" && curLon != "") {
+      searchResultSet += getSearchResult (curLat, curLon)
+    }
     //make static map
     //現在地情報が取得できる場合は、現在地を表示
     //検索対象の緯度経度がある場合は、緯度経度と範囲を表示
@@ -115,8 +127,18 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
       })
     })
 
+    var mapUrl = ""
+    if (ysm.haveCircles || ysm.havePins) {
+      mapUrl = ysm.getUrl
+    }
+
     contentType = "text/html"
-    templateEngine.layout("WEB-INF/layouts/main.ssp", Map("searchResultSet" -> searchResultSet, "staticMap" -> ysm.getUrl))
+    templateEngine.layout("WEB-INF/layouts/main.ssp",
+      Map(
+        "searchResultSet" -> searchResultSet,
+        "staticMap" -> mapUrl,
+        "name" -> name
+      ))
   }
 
   post("/") {
@@ -129,8 +151,13 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
     builder += ("timestamp" -> java.util.Calendar.getInstance().getTimeInMillis())
     mongo += builder.result
 
-    var url = "/?keyword="
-    params.get("keyword").foreach(keyword => {url += java.net.URLEncoder.encode(keyword, "UTF-8")})
+    var url = "/"
+    var newParams = new ArrayBuffer[String]
+    params.get("keyword").foreach(keyword => if (keyword != "") {newParams += "keyword=" + java.net.URLEncoder.encode(keyword, "UTF-8")})
+    params.get("name").foreach(name => newParams += "name=" + java.net.URLEncoder.encode(name, "UTF-8"))
+    if (!newParams.isEmpty) {
+      url += "?" + newParams.mkString("&")
+    }
     redirect(url)
   }
 
@@ -213,6 +240,8 @@ class YolpStaticMap(
     tmp += dist.toString()
     circles += tmp.mkString(",")
   }
+  def havePins = !pins.isEmpty
+  def haveCircles = !circles.isEmpty
   def getParameterString = {
     var tmp = new ArrayBuffer[String]
     tmp += "appid=" + appid

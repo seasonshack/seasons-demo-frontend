@@ -1,6 +1,7 @@
 <% import scala.collection.mutable.ArrayBuffer %>
 <%@ var searchResultSet:ArrayBuffer[ArrayBuffer[Map[String,String]]] %>
 <%@ var staticMap:String %>
+<%@ var name:String %>
 
 <script type="text/javascript">
 var geo = navigator.geolocation || google.gears.factory.create('beta.geolocation');
@@ -10,10 +11,9 @@ if(geo){
     function (pos) {
         $('#lat').val(pos.coords.latitude);
         $('#lon').val(pos.coords.longitude);
-        return true;
+        $('#form').submit();
     },
     function (e) {
-      return false;
     },
     {
       enableHighAccuracy: true
@@ -30,19 +30,21 @@ if(geo){
 
 <div style="margin: 20px">
 <!--input type="text" id="userName" /-->
-Welcom, yukondou
-<form onSubmit="return setGeo();" method="post" action="/" data-ajax="false">
+Welcome, ${name}
+<form id="form" method="post" action="/" data-ajax="false">
 <input type="text" name="keyword" id="keyword" /x>
 <input type="hidden" name="lat" id="lat" />
 <input type="hidden" name="lon" id="lon" />
-<input type="hidden" name="name" id="name" value="yukondou" />
-<input type="submit" value="post" />
+<input type="hidden" name="name" id="name" value="${name}" />
 </form>
+<input id="postGeo" type="button" value="search" onclick="setGeo()" />
 </div>
 
 <div class="content-primary">	
 
+#if (staticMap != "")
 <img src="${staticMap}" />
+#end
 
 <ul data-role="listview" data-inset="true" data-split-theme="a">
 #for (sr <- searchResultSet)
