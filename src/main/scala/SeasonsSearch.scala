@@ -27,6 +27,23 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
 
     //get recommended parameters
     var recomLatLonArray = new ArrayBuffer[Map[String,String]]()
+    //val seasonsApi = "http://under-hair.com:8124/"
+    
+    println(mongo.find(MongoDBObject("name" -> name)).size)
+    val seasonsApi = "http://localhost:8124/"
+    val seasonsRes = JSON.parseFull(Source.fromURL(seasonsApi, "utf-8").getLines.mkString)
+    val seasonsResult = seasonsRes.get.asInstanceOf[Map[String,List[Map[String,Any]]]]
+    seasonsResult("station").take(2).foreach(station => {
+      println(station("Name"))
+      val geo = station("Geometry").asInstanceOf[Map[String,String]]
+      val latlon = geo("Coordinates").split(",")
+      recomLatLonArray += Map[String,String](
+        "lat" -> latlon(1),
+        "lon" -> latlon(0)
+      )
+    })
+    //val result = seasonsRes.get.asInstanceOf[Map[String,List[Map[String,Any]]]]
+    //val searchResult = new ArrayBuffer[Map[String,String]]()
     /*
     recomLatLonArray += Map[String,String](
       "lat" -> "35.658517",
@@ -40,7 +57,7 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
 
     def getSearchResult(lat:String, lon:String):ArrayBuffer[Map[String,String]] = {
       //local search
-      var url = "http://search.olp.yahooapis.jp/OpenLocalPlatform/V1/localSearch?appid=cV8qsbmxg67L0Z7MV1B7vtwGTL5uf2wHPQhZPkam8Wfjp_.7SpgzAEn9cID00NXUcpqY" + "&output=json&gc=01&sort=dist&lat=" + lat + "&lon=" + lon + "&dist=1000" + "query="
+      var url = "http://search.olp.yahooapis.jp/OpenLocalPlatform/V1/localSearch?appid=cV8qsbmxg67L0Z7MV1B7vtwGTL5uf2wHPQhZPkam8Wfjp_.7SpgzAEn9cID00NXUcpqY" + "&output=json&gc=01&sort=dist&lat=" + lat + "&lon=" + lon + "&dist=800" + "query="
       params.get("keyword").foreach(keyword => {
         url += java.net.URLEncoder.encode(keyword, "UTF-8")
       })
@@ -118,7 +135,7 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
     }
 
     recomLatLonArray.foreach(recom => {
-      ysm.addCircle(new Color(255, 0, 0), 0, 1, new Color(255, 0, 0), 80, recom("lat"), recom("lon"), 1000)
+      ysm.addCircle(new Color(255, 0, 0), 0, 1, new Color(255, 0, 0), 80, recom("lat"), recom("lon"), 800)
     })
 
     searchResultSet.foreach(sr => {
@@ -162,28 +179,28 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
   }
 
   get("/test") {
-    val name = "test_yukondou"
+    val name = "yukondou"
     //$ date +%s -d '2012/02/20 11:30:00'
     val baseTime:Int = 1329705000
     val testDataSet = List(
       //品川
-      ("35.630152,139.74044",baseTime),
+      //("35.630152,139.74044",baseTime),
       //大崎
-      ("35.6197,139.728553",(baseTime + 120).toString()),
+      //("35.6197,139.728553",(baseTime + 120).toString()),
       //五反田
       ("35.626446,139.723444", (baseTime + 300).toString()),
       //目黒
-      ("35.633998,139.715828",(baseTime + 420).toString()),
+      //("35.633998,139.715828",(baseTime + 420).toString()),
       //恵比寿
       ("35.64669,139.710106",(baseTime + 600).toString()),
       //渋谷
-      ("35.658517,139.701334",(baseTime + 720).toString()),
+      //("35.658517,139.701334",(baseTime + 720).toString())
       //原宿
-      ("35.670168,139.702687",(baseTime + 840).toString()),
+      ("35.670168,139.702687",(baseTime + 840).toString())
       //代々木
-      ("35.683061,139.702042",(baseTime + 1020).toString()),
+      //("35.683061,139.702042",(baseTime + 1020).toString()),
       //新宿
-      ("35.690921,139.700258",(baseTime + 1140).toString())
+      //("35.690921,139.700258",(baseTime + 1140).toString())
     )
 
     testDataSet.foreach(data => {
@@ -204,6 +221,44 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
 
     contentType = "text/html"
     templateEngine.layout("WEB-INF/layouts/list.ssp", Map("result" -> result))
+  }
+
+    get("/test2") {
+      val name = "yukondou"
+      //$ date +%s -d '2012/02/20 11:30:00'
+      val baseTime:Int = 1329705000
+      val testDataSet = List(
+        //六本木
+        ("35.664068,139.731277",baseTime),
+        //青山一丁目
+        ("35.672841,139.724018",(baseTime + 120).toString()),
+        //国立競技場
+        ("35.679892,139.714721", (baseTime + 540).toString())
+      )
+
+      var num:Int = 3
+      params.get("n").foreach(n => {
+        num = n.toInt
+      })
+      
+      testDataSet.take(num).foreach(data => {
+        //save to mongo
+        val builder = MongoDBObject.newBuilder
+        val latlon = data._1.split(",")
+        builder += ("lat" -> latlon(0))
+        builder += ("lon" -> latlon(1))
+        builder += ("name" -> name)
+        builder += ("timestamp" -> data._2)
+        mongo += builder.result
+      })
+      
+      var result = new ArrayBuffer[String]()
+      mongo.foreach(geo => {
+        result += List(geo.get("name"), geo.get("lat"), geo.get("lon"), geo.get("timestamp")).mkString(", ")
+      })
+
+      contentType = "text/html"
+      templateEngine.layout("WEB-INF/layouts/list.ssp", Map("result" -> result))
   }
 
 }
