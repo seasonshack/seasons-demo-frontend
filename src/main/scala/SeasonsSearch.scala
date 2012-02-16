@@ -57,7 +57,7 @@ class SeasonsSearch extends ScalatraServlet with ScalateSupport {
 
     def getSearchResult(lat:String, lon:String):ArrayBuffer[Map[String,String]] = {
       //local search
-      var url = "http://search.olp.yahooapis.jp/OpenLocalPlatform/V1/localSearch?appid=cV8qsbmxg67L0Z7MV1B7vtwGTL5uf2wHPQhZPkam8Wfjp_.7SpgzAEn9cID00NXUcpqY" + "&output=json&gc=01&sort=dist&lat=" + lat + "&lon=" + lon + "&dist=800" + "query="
+      var url = "http://search.olp.yahooapis.jp/OpenLocalPlatform/V1/localSearch?appid=cV8qsbmxg67L0Z7MV1B7vtwGTL5uf2wHPQhZPkam8Wfjp_.7SpgzAEn9cID00NXUcpqY" + "&results=3&output=json&gc=01&sort=dist&lat=" + lat + "&lon=" + lon + "&dist=800" + "query="
       params.get("keyword").foreach(keyword => {
         url += java.net.URLEncoder.encode(keyword, "UTF-8")
       })
